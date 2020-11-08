@@ -1,0 +1,47 @@
+name: Meson CI
+
+on:
+  push:
+    branches: [ meson-vs2019 ]
+  pull_request:
+    branches: [ meson-vs2019 ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+        #dep: [ min, max ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Setup Meson
+        run: |
+          python -m pip install -e
+          pip install meson
+
+      - name: Install dependencies (Windows)
+        run: choco install ninja
+        if: matrix.os == 'windows-latest'
+
+      - name: Install dependencies (Linux)
+        run: sudo apt-get install ninja-build build-essential libx11-dev libwxgtk3.0-gtk3-dev libfreetype6-dev pkg-config libfontconfig1-dev libass-dev libasound2-dev libffms2-dev intltool
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Configure (Windows)
+        run: meson build -Db_vscrt=mdd -Ddefault_library=static
+        if: matrix.os == 'windows-latest'
+
+      - name: Configure (Linux)
+        run: meson build
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Build
+        working-directory: ${{runner.workspace}}/build
+        run: ninja
