@@ -37,6 +37,7 @@
 
 #include <algorithm>
 #include <wx/dc.h>
+#include <wx/dcmemory.h>
 
 namespace {
 	template<typename T>
@@ -193,14 +194,21 @@ void AudioRenderer::Render(wxDC &dc, wxPoint origin, const int start, const int 
 	// The last bitmap required
 	const int lastbitmap = std::min<int>(end / cache_bitmap_width, NumBlocks(provider->GetDecodedSamples()) - 1);
 
-	// Set a clipping region so that the first and last bitmaps don't draw
-	// outside the requested range
-	const wxDCClipper clipper(dc, wxRect(origin, wxSize(length, pixel_height)));
+	const int firstx = origin.x;
 	origin.x -= firstbitmapoffset;
 
 	for (int i = firstbitmap; i <= lastbitmap; ++i)
 	{
-		dc.DrawBitmap(GetCachedBitmap(i, style), origin);
+		auto const& bitmap = GetCachedBitmap(i, style);
+		const int copy_start = std::max(firstx, origin.x);
+		const int copy_end = std::min(firstx + length, origin.x + cache_bitmap_width);
+		if (copy_start < copy_end)
+		{
+			wxMemoryDC source;
+			source.SelectObjectAsSource(bitmap);
+			dc.Blit(copy_start, origin.y, copy_end - copy_start, pixel_height,
+				&source, copy_start - origin.x, 0);
+		}
 		origin.x += cache_bitmap_width;
 	}
 
